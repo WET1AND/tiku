@@ -1527,7 +1527,9 @@ function scheduleSync(){
 function saveSyncFromForm(){
   var tk=document.getElementById("syncTk"), rp=document.getElementById("syncRepo"), cd=document.getElementById("syncCode");
   if (!tk || !cd) return;
-  var token=tk.value.trim(), repo=rp.value.trim()||"tiku-sync", code=cd.value.trim().toUpperCase();
+  var token=tk.value.trim(), code=cd.value.trim().toUpperCase();
+  // 仓库名规范化：粘贴的配置串里存的是"用户名/仓库"完整名，再拼前缀会变成双前缀导致 Gitee 报错，这里只取最后一段
+  var repo=(rp.value.trim()||"tiku-sync").replace(/^.*\//,"")||"tiku-sync";
   if (!token || !code){ toast("请填写令牌和同步码"); return; }
   setSyncStatus("验证令牌中…");
   syncCfg={token:token, repo:repo, code:code};   // 临时供 gitee() 使用
@@ -1594,7 +1596,8 @@ function strToCfg(s){
   if(!t) throw new Error("empty");
   var o=JSON.parse(decodeURIComponent(escape(atob(t))));
   if(!o || !o.token || !o.code) throw new Error("bad");
-  if(!o.repo) o.repo="tiku-sync";
+  // 兼容旧版配置串：repo 可能存的是"用户名/仓库"完整名，填表单前剥成短名，避免保存时拼出双前缀
+  o.repo=String(o.repo||"").replace(/^.*\//,"")||"tiku-sync";
   return o;
 }
 function copySyncCfg(){
