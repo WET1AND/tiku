@@ -229,7 +229,7 @@ var K = "wb_tiku_";
 function load(k, d){ try{ var v = localStorage.getItem(K+k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
 function save(k, v){ try{ localStorage.setItem(K+k, JSON.stringify(v)); }catch(e){ toast("保存失败：存储空间不足"); }
   if (SYNC_KEYS && SYNC_KEYS.indexOf(k)>=0) scheduleSync(); }
-var settings  = load("settings", {theme:"auto", fs:"m", backupHint:false, autoNext:true, dragFlip:true});
+var settings  = load("settings", {theme:"auto", fs:"m", backupHint:false, autoNext:true, dragFlip:true, wheelFlip:true});
 var progress  = load("progress", {});       // {paperId:{idx,answers:{no:sel},savedAt}}
 var doneMap   = load("done", {});           // {qkey:'right'|'wrong'}
 var wrongMap  = load("wrong", {});          // {qkey:{p,n,at,streak}}
@@ -778,7 +778,10 @@ function renderSettings(){
     ["on","off"].map(function(v){ return '<button data-v="'+v+'" class="'+((settings.autoNext!==false?"on":"off")===v?"on":"")+'" onclick="setAutoNext(\''+v+'\')">'+(v==="on"?"开":"关")+'</button>'; }).join("")+'</div></div>'+
     '<div class="field"><label>电脑 · 鼠标拖拽翻页</label>'+
     '<p class="sub" style="margin:.15rem 0 .35rem">按住左键左右拖即可翻页；<b>划词选中、慢速拖动、斜向拖动均不会误翻</b>。如仍觉得误触可关闭（键盘 ← → 与触屏滑动不受影响）。</p><div class="seg" id="segDrag">'+
-    ["on","off"].map(function(v){ return '<button data-v="'+v+'" class="'+((settings.dragFlip!==false?"on":"off")===v?"on":"")+'" onclick="setDragFlip(\''+v+'\')">'+(v==="on"?"开":"关")+'</button>'; }).join("")+'</div></div></div>';
+    ["on","off"].map(function(v){ return '<button data-v="'+v+'" class="'+((settings.dragFlip!==false?"on":"off")===v?"on":"")+'" onclick="setDragFlip(\''+v+'\')">'+(v==="on"?"开":"关")+'</button>'; }).join("")+'</div></div>'+
+    '<div class="field"><label>电脑 · 鼠标滚轮翻页</label>'+
+    '<p class="sub" style="margin:.15rem 0 .35rem">向下滚翻下一题、向上滚翻上一题；<b>题目超出一屏时先滚动内容，到页底/页顶后再滚才翻页</b>，触控板惯性不会连翻。练习、考试、背题三模式通用。</p><div class="seg" id="segWheel">'+
+    ["on","off"].map(function(v){ return '<button data-v="'+v+'" class="'+((settings.wheelFlip!==false?"on":"off")===v?"on":"")+'" onclick="setWheelFlip(\''+v+'\')">'+(v==="on"?"开":"关")+'</button>'; }).join("")+'</div></div></div>';
   h += '<div class="card"><h3>云同步（多设备进度）</h3>'+syncCardHtml()+'</div>';
   h += '<div class="card"><h3>数据</h3><p class="sub" style="margin-top:0">数据保存在本设备浏览器。换设备或换浏览器请先导出备份，再在另一台设备导入。</p>'+
     '<div class="grid2"><button class="btn ghost" onclick="exportData()">'+svg("down").replace("<svg",'<svg width="15" height="15"')+' 导出备份</button>'+
@@ -1245,6 +1248,7 @@ function setTheme(t){ settings.theme=t; save("settings",settings); refresh(); }
 function setFs(f){ settings.fs=f; save("settings",settings); applyTheme(); refresh(); }
 function setAutoNext(v){ settings.autoNext=(v==="on"); save("settings",settings); toast("答对自动跳下一题："+(v==="on"?"开":"关")); refresh(); }
 function setDragFlip(v){ settings.dragFlip=(v==="on"); save("settings",settings); toast("鼠标拖拽翻页："+(v==="on"?"开":"关")); refresh(); }
+function setWheelFlip(v){ settings.wheelFlip=(v==="on"); save("settings",settings); toast("鼠标滚轮翻页："+(v==="on"?"开":"关")); refresh(); }
 function reViewPaper(){
   var r=app.lastResult; if(!r) return;
   var h='<h3 style="margin:0 0 .5rem">本次作答分布</h3><div class="legend"><span><i style="background:var(--ok)"></i>答对</span><span><i style="background:var(--bad)"></i>答错</span></div><div class="sheet">';
@@ -1354,6 +1358,37 @@ function initSwipe(){
     if (tag==="INPUT" || tag==="TEXTAREA" || tag==="SELECT") return;          // 输入控件内不劫持方向键
     move(e.key==="ArrowRight" ? 1 : -1);
   });
+
+  /* ---- 电脑端：滚轮翻页（三模式通用） ----
+     与纵向滚动协调：题目内容超出一屏时，滚轮先正常滚动页面；
+     滚到页底继续向下滚 → 翻下一题，滚到页顶继续向上滚 → 翻上一题。
+     连续滚动累计 ≥240px 才触发一次翻页，翻页后 700ms 冷却，
+     期间吞掉触控板惯性滚动（防止连翻数页）。 */
+  var wheelAcc = 0, wheelLockUntil = 0, lastWheelAt = 0;
+  document.addEventListener("wheel", function(e){
+    if (!inQuiz() || settings.wheelFlip===false) return;
+    if (modalOpen()) return;                       // 弹窗（答题卡/设置/确认框）打开时不劫持
+    var now = Date.now();
+    if (now - lastWheelAt > 300) wheelAcc = 0;     // 距上次超过 300ms 视为新的一次滚动
+    lastWheelAt = now;
+    if (now < wheelLockUntil){ e.preventDefault(); return; }   // 冷却期：吞掉惯性
+    var dy = e.deltaY * (e.deltaMode===1 ? 40 : 1);            // Firefox 行模式换算
+    if (!dy) return;
+    var doc = document.documentElement;
+    var canScroll = doc.scrollHeight - window.innerHeight > 8;
+    if (canScroll){
+      var atBottom = window.innerHeight + window.scrollY >= doc.scrollHeight - 4;
+      var atTop    = window.scrollY <= 4;
+      if ((dy > 0 && !atBottom) || (dy < 0 && !atTop)){ wheelAcc = 0; return; }  // 页面还能滚 → 交给自然滚动
+    }
+    wheelAcc += dy;
+    if (Math.abs(wheelAcc) >= 240){
+      wheelAcc = 0;
+      wheelLockUntil = now + 700;
+      e.preventDefault();
+      move(dy > 0 ? 1 : -1);
+    }
+  }, {passive:false});
 }
 
 /* ================= 更新检查 =================
