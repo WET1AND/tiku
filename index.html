@@ -94,6 +94,8 @@ body{margin:0;background:var(--bg);color:var(--text);
 /* 题干/材料内图片 + 点击放大 */
 .q-stem img,.mat img,.opt .grow img{display:block;max-width:100%;height:auto;margin:.6em auto;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:zoom-out}
 .opt .grow img{max-height:170px;width:auto;pointer-events:auto}
+/* 划线词语（"划横线的词语"类题）：题库数据用 <u>…</u> 标注 */
+.q-stem u,.mat u,.opt .grow u{text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1.5px;font-style:normal}
 .imgzoom{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.93);display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:zfadeIn .15s ease}
 .imgzoom img{max-width:100vw;max-height:94vh;object-fit:contain;border:none;border-radius:0;background:transparent}
 .imgzoom .ztip{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:#fff;font-size:.8rem;opacity:.65;pointer-events:none}
@@ -401,9 +403,13 @@ function renderStem(s){
   var imgs=[];
   var t=s.replace(/<img\b[^>]*\/?>/gi,function(m){ imgs.push(m); return "\u0001_IMG_"+(imgs.length-1)+"_\u0001"; });
   t=t.replace(/<br\s*\/?>/gi,"\u0001_BR_\u0001");
+  t=t.replace(/<u>/gi,"\u0001_UO_\u0001").replace(/<\/u>/gi,"\u0001_UC_\u0001");
   t=t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  return t.replace(/\u0001_IMG_(\d+)_\u0001/g,function(_,i){ return imgs[+i]||""; }).replace(/\u0001_BR_\u0001/g,"<br>");
+  return t.replace(/\u0001_IMG_(\d+)_\u0001/g,function(_,i){ return imgs[+i]||""; })
+          .replace(/\u0001_BR_\u0001/g,"<br>")
+          .replace(/\u0001_UO_\u0001/g,"<u>").replace(/\u0001_UC_\u0001/g,"</u>");
 }
+function stripU(s){ return (s||"").replace(/<\/?u>/gi,""); }
 /* 图片点击放大（题干/材料内图片通用） */
 function zoomImg(src){
   var old=document.querySelector(".imgzoom"); if(old) old.remove();
@@ -628,7 +634,7 @@ function renderResult(){
     h += '<div class="card"><h3>错题回顾（'+r.wrongList.length+' 题，已加入错题集）</h3>';
     r.wrongList.forEach(function(it){
       h += '<div style="margin-bottom:.9rem"><div class="q-type">'+TYPE_LABEL[it.q.t]+' · 第'+it.q.no+'题</div>'+
-        '<div class="q-stem" style="font-size:.95rem;margin:.3rem 0">'+renderStem(it.q.s.slice(0,120))+(it.q.s.length>120?"…":"")+'</div>'+
+        '<div class="q-stem" style="font-size:.95rem;margin:.3rem 0">'+renderStem(stripU(it.q.s).slice(0,120))+(stripU(it.q.s).length>120?"…":"")+'</div>'+
         '<div class="fb badd">你的答案：'+esc(it.sel||"未作答")+' · 正确答案：'+esc(it.q.t==="judge"?normJudge(it.q.a):normSel(it.q.a))+'</div>'+
         (it.q.e?'<div class="exp" style="color:var(--sub)">'+esc(it.q.e.replace(/<img\b[^>]*\/?>/gi,"").slice(0,150))+(it.q.e.replace(/<img\b[^>]*\/?>/gi,"").length>150?"…":"")+'</div>':"")+'</div>';
     });
@@ -661,7 +667,7 @@ function renderWrong(){
       var w=wrongMap[k], q=getQ(k);
       h += '<div style="padding:.5rem 0;border-bottom:1px solid var(--line)">'+
         '<div class="row"><div class="grow" style="min-width:0;cursor:pointer" onclick="viewOne(\''+k+'\')"><div class="sub" style="font-size:.75rem">'+esc(paperName(w.p))+' · 第'+w.n+'题'+(w.streak?' · <span class="chip green">连对'+w.streak+'</span>':"")+'</div>'+
-        '<div style="font-size:.88rem;margin-top:.25rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(q?renderStem(q.s.slice(0,60)):"（题干加载后显示）")+'</div></div>'+
+        '<div style="font-size:.88rem;margin-top:.25rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(q?renderStem(stripU(q.s).slice(0,60)):"（题干加载后显示）")+'</div></div>'+
         '<button class="iconbtn" style="color:var(--bad)" onclick="event.stopPropagation();removeWrong(\''+k+'\')" aria-label="移出">'+svg("trash")+'</button></div></div>';
     });
     h += '</div>';
@@ -682,7 +688,7 @@ function renderFav(){
       var q=getQ(k);
       h += '<div style="padding:.5rem 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="viewOne(\''+k+'\')">'+
         '<div class="sub" style="font-size:.75rem">'+(q?esc(paperName(k.slice(0,k.lastIndexOf(":"))))+" · 第"+q.no+"题":"")+'</div>'+
-        '<div style="font-size:.88rem;margin-top:.25rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(q?renderStem(q.s.slice(0,60)):"")+'</div></div>';
+        '<div style="font-size:.88rem;margin-top:.25rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(q?renderStem(stripU(q.s).slice(0,60)):"")+'</div></div>';
     });
     h += '</div>';
   }
