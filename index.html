@@ -173,12 +173,13 @@ input:focus,select:focus{outline:none;border-color:var(--pri)}
 @keyframes qPrev{from{opacity:0;transform:translateX(-52px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.slide-next,.slide-prev{animation:none}}
 /* 更新通知横幅 */
-#updbar{position:fixed;top:0;left:0;right:0;z-index:130;display:none;align-items:center;gap:.7rem;
-  padding:.65rem 1rem calc(.65rem + env(safe-area-inset-top));background:#1f6feb;color:#fff;
+#updbar{position:fixed;left:0;right:0;z-index:130;display:none;align-items:center;gap:.7rem;
+  padding:.65rem 1rem;background:#1f6feb;color:#fff;
   font-size:.9rem;box-shadow:0 2px 10px rgba(0,0,0,.25)}
 #updbar.show{display:flex}
-#updbar button{margin-left:auto;flex:0 0 auto;background:#fff;color:#1f6feb;border:none;border-radius:9px;
+#updbar button{flex:0 0 auto;background:#fff;color:#1f6feb;border:none;border-radius:9px;
   padding:.45rem .85rem;min-height:36px;font-weight:700;font-size:.85rem;cursor:pointer}
+#updbar button.later{margin-left:auto;background:none;border:1px solid rgba(255,255,255,.75);color:#fff;font-weight:600}
 @media (max-width:420px){.stat-grid{grid-template-columns:repeat(3,1fr)}.q-stem{font-size:1rem}}
 </style>
 </head>
@@ -1399,7 +1400,9 @@ function initSwipe(){
 
 /* ================= 更新检查 =================
    data/version.json 由构建脚本生成。本机存的版本号与服务端不一致时，
-   顶部弹出「有更新」横幅，点按钮写入新版本号并刷新页面。 */
+   顶栏正下方弹出「有更新」横幅（不遮挡返回/设置），点按钮写入新版本号并刷新页面；
+   「稍后」本会话静默（同版本不再自动弹，手动检查更新仍显示）。 */
+var updDismissedVer = null;
 function fetchVersion(){
   return fetch("data/version.json?t=" + Date.now(), {cache:"no-store"})
     .then(function(r){ return r.json(); })
@@ -1410,7 +1413,9 @@ function checkUpdate(manual){
     if (!remote) return;
     var local = localStorage.getItem(K+"ver");
     if (!local){ localStorage.setItem(K+"ver", remote); return; }   // 首次访问：只记录
-    if (remote !== local) showUpdateBar();
+    if (remote !== local){
+      if (manual || remote !== updDismissedVer) showUpdateBar();
+    }
     else if (manual) toast("已是最新版本");
   }).catch(function(){ if (manual) toast("检查更新失败，请检查网络"); });
 }
@@ -1419,10 +1424,19 @@ function showUpdateBar(){
   if (!b){
     b = document.createElement("div");
     b.id = "updbar";
-    b.innerHTML = '<span>题库或功能有新版本</span><button onclick="doUpdate()">立即更新</button>';
+    b.innerHTML = '<span>题库或功能有新版本</span>'
+      + '<button class="later" onclick="hideUpdateBar()">稍后</button>'
+      + '<button onclick="doUpdate()">立即更新</button>';
     document.body.appendChild(b);
   }
+  var tb = document.getElementById("topbar");      // 挂在顶栏正下方，绝不遮挡返回/设置
+  b.style.top = (tb ? tb.getBoundingClientRect().bottom : 0) + "px";
   b.classList.add("show");
+}
+function hideUpdateBar(){
+  var b = document.getElementById("updbar");
+  if (b) b.classList.remove("show");
+  fetchVersion().then(function(v){ if (v) updDismissedVer = v; }).catch(function(){});
 }
 function doUpdate(){
   fetchVersion().then(function(v){
