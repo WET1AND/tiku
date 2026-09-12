@@ -97,7 +97,7 @@ body{margin:0;background:var(--bg);color:var(--text);
 /* 划线词语（"划横线的词语"类题）：题库数据用 <u>…</u> 标注 */
 .q-stem u,.mat u,.opt .grow u{text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1.5px;font-style:normal}
 .imgzoom{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.93);display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:zfadeIn .15s ease}
-.imgzoom img{max-width:100vw;max-height:94vh;object-fit:contain;border:none;border-radius:0;background:transparent}
+.imgzoom img{max-width:100vw;max-height:94vh;min-width:min(88vw,640px);object-fit:contain;border:none;border-radius:0;background:transparent}
 .imgzoom .ztip{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;color:#fff;font-size:.8rem;opacity:.65;pointer-events:none}
 @keyframes zfadeIn{from{opacity:0}to{opacity:1}}
 .qnav{position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--card);border-top:1px solid var(--line);
@@ -422,7 +422,7 @@ function zoomImg(src){
 }
 document.addEventListener("click",function(e){
   var t=e.target;
-  if(t && t.tagName==="IMG" && t.closest(".q-stem,.mat,.opt .grow")){ e.preventDefault(); e.stopPropagation(); zoomImg(t.src); }
+  if(t && t.tagName==="IMG" && t.closest(".q-stem,.mat,.opt .grow,.exp")){ e.preventDefault(); e.stopPropagation(); zoomImg(t.src); }
 },true);
 
 /* ================= 主题 ================= */
