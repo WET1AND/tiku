@@ -572,7 +572,10 @@ function renderQuiz(){
       }
       if (cls==="opt") cls+=" dim";
     } else if (sel.indexOf(v)>=0 && (q.t==="multi"||q.t==="uncertain"||sel===v)) cls+=" sel";
-    h += '<div class="'+cls+'" '+(qz.mode==="recite"?"":'onclick="pickOpt(\''+v+'\')"')+'><span class="ol">'+L+'.</span><span class="grow">'+renderStem(opts[i])+'</span></div>';
+    // 图形题占位：选项内容就是自身字母时（真正的四个选项已画在题干图里），
+    // 只渲染字母标号，避免出现「A. A」这种重复。
+    var _obody = (q.t!=="judge" && String(opts[i]==null?"":opts[i]).trim()===L) ? "" : renderStem(opts[i]);
+    h += '<div class="'+cls+'" '+(qz.mode==="recite"?"":'onclick="pickOpt(\''+v+'\')"')+'><span class="ol">'+L+'.</span><span class="grow">'+_obody+'</span></div>';
   }
   if ((q.t==="multi"||q.t==="uncertain") && !revealed && qz.mode==="practice"){
     h += '<button class="btn block" style="margin-top:.4rem" '+(sel?"":"disabled style2 opacity:.5")+' onclick="confirmMulti()">确认答案</button>';
